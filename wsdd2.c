@@ -649,6 +649,7 @@ static char *get_smbparm(bool use_testparm, const char *name, const char *_defau
 			*p = '\0';
 		for (p = buf; *p && isspace(*p); p++)
 			;
+		DEBUG(2, W, "testparm found value of \"%s\": %s", name, p);
 		result = strdup(p);
 	}
 
