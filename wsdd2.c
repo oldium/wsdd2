@@ -581,10 +581,41 @@ static void sighandler(int sig)
 	}
 }
 
-static char *get_smbparm(const char *name, const char *_default)
+static bool check_testparm(void)
+{
+#define __FUNCTION__	"check_testparm"
+	bool result;
+	FILE *pp = popen("command -v testparm 2>/dev/null", "r");
+
+	if (!pp) {
+		DEBUG(0, W, __FUNCTION__ ": can't run command -v testparm");
+		return false;
+	}
+
+	char buf[PAGE_SIZE];
+	if (!fgets(buf, sizeof(buf), pp) || !buf[0] || buf[0] == '\n') {
+		// Empty output when not found
+		DEBUG(1, W, "not using testparm, executable not found");
+		result = false;
+	} else { // trim whitespace
+		DEBUG(1, W, "testparm found, using it to obtain values");
+		result = true;
+	}
+
+	pclose(pp);
+	return result;
+#undef __FUNCTION__
+}
+
+static char *get_smbparm(bool use_testparm, const char *name, const char *_default)
 {
 #define __FUNCTION__	"get_smbparm"
 	char *cmd = NULL, *result = NULL;
+
+	if (!use_testparm) {
+		DEBUG(1, W, "no testparm found, using default value of \"%s\": %s", name, _default);
+		return strdup(_default);
+	}
 
 	if (asprintf(&cmd, "testparm -s --parameter-name=\"%s\" 2>/dev/null", name) <= 0) {
 		DEBUG(0, W, __FUNCTION__ ": can't allocate cmd string");
@@ -654,25 +685,44 @@ static void help(const char *prog, int ec, const char *fmt, ...)
 
 static void init_sysinfo()
 {
-	char hostn[HOST_NAME_MAX + 1];
+	bool has_testparm = check_testparm();
 
-	if (!hostname && gethostname(hostn, sizeof(hostn) - 1) != 0)
-		err(EXIT_FAILURE, "gethostname");
+	if (!hostname) {
+		char hostn[HOST_NAME_MAX + 1];
+		if (gethostname(hostn, sizeof(hostn) - 1) != 0)
+			err(EXIT_FAILURE, "gethostname");
 
-	char *p = strchr(hostn, '.');
-	if (p) *p = '\0';
-	hostname = strdup(hostn);
+		char *p = strchr(hostn, '.');
+		if (p) *p = '\0';
+		hostname = strdup(hostn);
+		if (!hostname)
+			err(EXIT_FAILURE, "strdup");
+	}
 
-	if (!hostaliases && !(hostaliases = get_smbparm("additional dns hostnames", "")))
+	if (!hostaliases && !(hostaliases = get_smbparm(has_testparm, "additional dns hostnames", "")))
 		err(EXIT_FAILURE, "get_smbparm");
 
-	if (!netbiosname && !(netbiosname = get_smbparm("netbios name", hostname)))
+	if (!netbiosname) {
+		char *netbiosname_default = strdup(hostname);
+		if (!netbiosname_default)
+			err(EXIT_FAILURE, "strdup");
+
+		char *s = netbiosname_default;
+		while (*s) {
+			*s = toupper(*s);
+			s++;
+		}
+
+		if (!(netbiosname = get_smbparm(has_testparm, "netbios name", netbiosname_default)))
+			err(EXIT_FAILURE, "get_smbparm");
+
+		free(netbiosname_default);
+	}
+
+	if (!netbiosaliases && !(netbiosaliases = get_smbparm(has_testparm, "netbios aliases", "")))
 		err(EXIT_FAILURE, "get_smbparm");
 
-	if (!netbiosaliases && !(netbiosaliases = get_smbparm("netbios aliases", "")))
-		err(EXIT_FAILURE, "get_smbparm");
-
-	if (!workgroup && !(workgroup = get_smbparm("workgroup", "WORKGROUP")))
+	if (!workgroup && !(workgroup = get_smbparm(has_testparm, "workgroup", "WORKGROUP")))
 		err(EXIT_FAILURE, "get_smbparm");
 
 	init_getresp();
