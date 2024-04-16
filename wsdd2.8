@@ -18,8 +18,8 @@ wsdd2 \- server to provide WSDD/LLMNR services to clients
 .SH "SYNOPSIS"
 .HP \w'\ 'u
 wsddd2 [\-h] [\-d] [\-4] [\-6] [\-u] [\-t] [\-l] [\-w] [\-L] [\-W]
-[\-i <intrerface>] [\-H <hostname>] [\-A <hostaliases>] [\-N <netbiosname>]
-[\-B <netbiosaliases>] [\-G <workgroup>] [\-b <kvlist>]
+[\-i <intrerface>] [\c <file>] [\-H <hostname>] [\-A <hostaliases>]
+[\-N <netbiosname>] [\-B <netbiosaliases>] [\-G <workgroup>] [\-b <kvlist>]
 
 .SH "DESCRIPTION"
 .PP
@@ -113,6 +113,13 @@ Use only specified interface to reply to incoming requests. Specifying "any"
 or leaving option out causes \fBwsdd2\fR to listen on every IPv4 or IPv6
 capable interface excluding those that have names matching LeafNets,
 docker*, veth*, tun*, ppp*, zt*.
+.RE
+
+.PP
+\-c <file>
+.RS 4
+Read \fBsmb.conf\fR from the specified file path. If not specified,
+\fBtestparm\fR default file location will be used.
 .RE
 
 .PP

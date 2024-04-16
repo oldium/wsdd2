@@ -59,6 +59,8 @@ bool is_daemon = false;
 int debug_L, debug_W, debug_N;
 const char *hostname = NULL, *hostaliases = NULL, *netbiosname = NULL, *netbiosaliases = NULL, *workgroup = NULL;
 
+static char *smb_conf = NULL;
+
 static char *ifname = NULL;
 static unsigned ifindex = 0;
 static struct ifaddrs *ifaddrs_list = NULL;
@@ -617,9 +619,16 @@ static char *get_smbparm(bool use_testparm, const char *name, const char *_defau
 		return strdup(_default);
 	}
 
-	if (asprintf(&cmd, "testparm -s --parameter-name=\"%s\" 2>/dev/null", name) <= 0) {
-		DEBUG(0, W, __FUNCTION__ ": can't allocate cmd string");
-		return NULL;
+	if (smb_conf && strlen(smb_conf)) {
+		if (asprintf(&cmd, "testparm -s --parameter-name=\"%s\" \"%s\" 2>/dev/null", name, smb_conf) <= 0) {
+			DEBUG(0, W, __FUNCTION__ ": can't allocate cmd string");
+			return NULL;
+		}
+	} else {
+		if (asprintf(&cmd, "testparm -s --parameter-name=\"%s\" 2>/dev/null", name) <= 0) {
+			DEBUG(0, W, __FUNCTION__ ": can't allocate cmd string");
+			return NULL;
+		}
 	}
 
 	FILE *pp = popen(cmd, "r");
@@ -648,6 +657,20 @@ static char *get_smbparm(bool use_testparm, const char *name, const char *_defau
 #undef __FUNCTION__
 }
 
+static void find_config_file()
+{
+	char *config_file = NULL;
+	if (!(config_file = get_smbparm(true, "config file", "")))
+		err(EXIT_FAILURE, "get_smbparm");
+
+	if (strlen(config_file) > 0 && access(config_file, F_OK) == 0) {
+		if (smb_conf)
+			free(smb_conf);
+		smb_conf = config_file;
+	} else
+		free(config_file);
+}
+
 static void help(const char *prog, int ec, const char *fmt, ...)
 {
 	if (fmt) {
@@ -670,6 +693,7 @@ static void help(const char *prog, int ec, const char *fmt, ...)
 		"       -L increment LLMNR debug level (%d)\n"
 		"       -W increment WSDD debug level (%d)\n"
 		"       -i <interface> reply only on this interface (%s)\n"
+		"       -c <file> read smb.conf from non-default location (%s)\n"
 		"       -H <name> set host name (%s)\n"
 		"       -A \"name list\" set host aliases (%s)\n"
 		"       -N <name> set netbios name (%s)\n"
@@ -677,6 +701,7 @@ static void help(const char *prog, int ec, const char *fmt, ...)
 		"       -G <name> set workgroup (%s)\n"
 		"       -b \"key1:val1,key2:val2,...\" boot parameters:\n",
 		prog, debug_L, debug_W, ifname ? ifname : "any",
+		smb_conf ? smb_conf : "default",
 		hostname, hostaliases, netbiosname, netbiosaliases, workgroup
 	);
 	printBootInfoKeys(stdout, 11);
@@ -686,6 +711,8 @@ static void help(const char *prog, int ec, const char *fmt, ...)
 static void init_sysinfo()
 {
 	bool has_testparm = check_testparm();
+	if (has_testparm)
+		find_config_file();
 
 	if (!hostname) {
 		char hostn[HOST_NAME_MAX + 1];
@@ -743,7 +770,7 @@ int main(int argc, char **argv)
 
 	init_sysinfo();
 
-	while ((opt = getopt(argc, argv, "hd46utlwLWi:H:A:N:B:G:b:")) != -1) {
+	while ((opt = getopt(argc, argv, "hd46utlwLWi:H:A:N:B:G:b:c:")) != -1) {
 		switch (opt) {
 		case 'h':
 			help(prog, EXIT_SUCCESS, NULL);
@@ -811,8 +838,12 @@ int main(int argc, char **argv)
 				if (set_getresp(optarg, (const char **)&optarg) != 0)
 					help(prog, EXIT_FAILURE, "Bad key:val '%s'", optarg);
 			break;
+		case 'c':
+			if (optarg != NULL && strlen(optarg) > 0)
+				smb_conf = strdup(optarg);
+			break;
 		case '?':
-			if (strchr("iHNAGBb", optopt))
+			if (strchr("iHNAGBbc", optopt))
 				printf("Option -%c requires an argument.\n", optopt);
 			/* ... fall through ... */
 		default:
