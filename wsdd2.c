@@ -671,43 +671,6 @@ static void find_config_file()
 		free(config_file);
 }
 
-static void help(const char *prog, int ec, const char *fmt, ...)
-{
-	if (fmt) {
-		va_list ap;
-		va_start(ap, fmt);
-		vprintf(fmt, ap);
-		va_end(ap);
-		puts("\n");
-	}
-	printf( "WSDD and LLMNR daemon\n"
-		"Usage: %s [options]\n"
-		"       -h this message\n"
-		"       -d become daemon\n"
-		"       -4 IPv4 only\n"
-		"       -6 IPv6 only\n"
-		"       -u UDP only\n"
-		"       -t TCP only\n"
-		"       -l LLMNR only\n"
-		"       -w WSDD only\n"
-		"       -L increment LLMNR debug level (%d)\n"
-		"       -W increment WSDD debug level (%d)\n"
-		"       -i <interface> reply only on this interface (%s)\n"
-		"       -c <file> read smb.conf from non-default location (%s)\n"
-		"       -H <name> set host name (%s)\n"
-		"       -A \"name list\" set host aliases (%s)\n"
-		"       -N <name> set netbios name (%s)\n"
-		"       -B \"name list\" set netbios aliases (%s)\n"
-		"       -G <name> set workgroup (%s)\n"
-		"       -b \"key1:val1,key2:val2,...\" boot parameters:\n",
-		prog, debug_L, debug_W, ifname ? ifname : "any",
-		smb_conf ? smb_conf : "default",
-		hostname, hostaliases, netbiosname, netbiosaliases, workgroup
-	);
-	printBootInfoKeys(stdout, 11);
-	exit(ec);
-}
-
 static void init_sysinfo()
 {
 	bool has_testparm = check_testparm();
@@ -755,6 +718,45 @@ static void init_sysinfo()
 	init_getresp();
 }
 
+static void help(const char *prog, int ec, const char *fmt, ...)
+{
+	init_sysinfo();
+
+	if (fmt) {
+		va_list ap;
+		va_start(ap, fmt);
+		vprintf(fmt, ap);
+		va_end(ap);
+		puts("\n");
+	}
+	printf( "WSDD and LLMNR daemon\n"
+			"Usage: %s [options]\n"
+			"       -h this message\n"
+			"       -d become daemon\n"
+			"       -4 IPv4 only\n"
+			"       -6 IPv6 only\n"
+			"       -u UDP only\n"
+			"       -t TCP only\n"
+			"       -l LLMNR only\n"
+			"       -w WSDD only\n"
+			"       -L increment LLMNR debug level (%d)\n"
+			"       -W increment WSDD debug level (%d)\n"
+			"       -i <interface> reply only on this interface (%s)\n"
+			"       -c <file> read smb.conf from non-default location (%s)\n"
+			"       -H <name> set host name (%s)\n"
+			"       -A \"name list\" set host aliases (%s)\n"
+			"       -N <name> set netbios name (%s)\n"
+			"       -B \"name list\" set netbios aliases (%s)\n"
+			"       -G <name> set workgroup (%s)\n"
+			"       -b \"key1:val1,key2:val2,...\" boot parameters:\n",
+			prog, debug_L, debug_W, ifname ? ifname : "any",
+			smb_conf ? smb_conf : "default",
+			hostname, hostaliases, netbiosname, netbiosaliases, workgroup
+	);
+	printBootInfoKeys(stdout, 11);
+	exit(ec);
+}
+
 #define	_4	1
 #define	_6	2
 #define _TCP	1
@@ -767,13 +769,12 @@ int main(int argc, char **argv)
 	int opt;
 	const char *prog = basename(argv[0]);
 	unsigned int ipv46 = 0, tcpudp = 0, llmnrwsdd = 0;
-
-	init_sysinfo();
+	bool print_help = false;
 
 	while ((opt = getopt(argc, argv, "hd46utlwLWi:H:A:N:B:G:b:c:")) != -1) {
 		switch (opt) {
 		case 'h':
-			help(prog, EXIT_SUCCESS, NULL);
+			print_help = true;
 			break;
 		case 'd':
 			is_daemon = true;
@@ -853,6 +854,11 @@ int main(int argc, char **argv)
 
 	if (argc > optind)
 		help(prog, EXIT_FAILURE, "Unknown argument '%s'", argv[optind]);
+
+	if (print_help)
+		help(prog, EXIT_SUCCESS, NULL);
+
+	init_sysinfo();
 
 	if (!ipv46)
 		ipv46 = _4 | _6;
