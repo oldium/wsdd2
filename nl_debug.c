@@ -1227,18 +1227,18 @@ int main(int argc, char *argv[])
     rc = connect(nls, (struct sockaddr *) &nlraddr, sizeof(nlraddr));
     if (rc != 0) goto fail;
 
-    size_t nlslen = sizeof(nlsaddr);
+    socklen_t nlslen = sizeof(nlsaddr);
     rc = getsockname(nls, (struct sockaddr *) &nlsaddr, &nlslen);
     if (rc < 0) goto fail;
 
-    outf("getsockname: len=%d family=%d pid=%d groups=%#x\n", nlslen,
+    outf("getsockname: len=%u family=%d pid=%d groups=%#x\n", (unsigned) nlslen,
         nlsaddr.nl_family, nlsaddr.nl_pid, nlsaddr.nl_groups);
 
-    size_t nlrlen = sizeof(nlraddr);
+    socklen_t nlrlen = sizeof(nlraddr);
     rc = getpeername(nls, (struct sockaddr *) &nlraddr, &nlrlen);
     if (rc < 0) goto fail;
 
-    outf("getpeername: len=%d family=%d pid=%d groups=%#x\n", nlrlen,
+    outf("getpeername: len=%u family=%d pid=%d groups=%#x\n", (unsigned) nlrlen,
         nlraddr.nl_family, nlraddr.nl_pid, nlraddr.nl_groups);
 
     //rc = fcntl(nls, F_GETFL, 0);
