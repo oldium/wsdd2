@@ -928,7 +928,8 @@ again:
 		if ((val = HEADER_IS(p, "Content-Type:"))) {
 			while (*val == ' ' || *val == '\t' || *val == '\r' || *val == '\n')
 				val++; // skip LWS
-			if (strcmp(val, "application/soap+xml") != 0) {
+			if (strncmp(val, "application/soap+xml", 20) != 0 ||
+					!(val[20] == '\0' || val[20] == ';' || val[20] == ' ' || val[20] == '\t' || val[20] == '\r' || val[20] == '\n')) {
 				ep->errstr = __FUNCTION__ ": Unsupported Content-Type";
 				return 400;
 			}
