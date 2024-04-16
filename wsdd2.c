@@ -640,8 +640,11 @@ static char *get_smbparm(bool use_testparm, const char *name, const char *_defau
 	}
 
 	char buf[PAGE_SIZE];
-	if (!fgets(buf, sizeof(buf), pp) || !buf[0]  || buf[0] == '\n') {
+	if (!fgets(buf, sizeof(buf), pp) || !buf[0]) {
 		DEBUG(0, W, "cannot read %s from testparm", name);
+		result = strdup(_default);
+	} else if (buf[0] == '\n') {
+		DEBUG(1, W, "testparm have not found value of \"%s\", using default: %s", name, _default);
 		result = strdup(_default);
 	} else { // trim whitespace
 		char *p;
