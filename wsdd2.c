@@ -59,6 +59,7 @@ bool is_daemon = false;
 int debug_L, debug_W, debug_N;
 const char *hostname = NULL, *hostaliases = NULL, *netbiosname = NULL, *netbiosaliases = NULL, *workgroup = NULL;
 
+static bool has_testparm = false;
 static char *smb_conf = NULL;
 
 static char *ifname = NULL;
@@ -583,29 +584,26 @@ static void sighandler(int sig)
 	}
 }
 
-static bool check_testparm(void)
+static void check_testparm(void)
 {
 #define __FUNCTION__	"check_testparm"
-	bool result;
 	FILE *pp = popen("command -v testparm 2>/dev/null", "r");
 
 	if (!pp) {
 		DEBUG(0, W, __FUNCTION__ ": can't run command -v testparm");
-		return false;
+		return;
 	}
 
 	char buf[PAGE_SIZE];
 	if (!fgets(buf, sizeof(buf), pp) || !buf[0] || buf[0] == '\n') {
 		// Empty output when not found
 		DEBUG(1, W, "not using testparm, executable not found");
-		result = false;
 	} else { // trim whitespace
 		DEBUG(1, W, "testparm found, using it to obtain values");
-		result = true;
+		has_testparm = true;
 	}
 
 	pclose(pp);
-	return result;
 #undef __FUNCTION__
 }
 
@@ -677,7 +675,8 @@ static void find_config_file()
 
 static void init_sysinfo()
 {
-	bool has_testparm = check_testparm();
+	check_testparm();
+
 	if (has_testparm)
 		find_config_file();
 
@@ -754,7 +753,7 @@ static void help(const char *prog, int ec, const char *fmt, ...)
 			"       -G <name> set workgroup (%s)\n"
 			"       -b \"key1:val1,key2:val2,...\" boot parameters:\n",
 			prog, debug_L, debug_W, ifname ? ifname : "any",
-			smb_conf ? smb_conf : "default",
+			has_testparm ? (smb_conf ? smb_conf : "default") : "testparm not found, ignored",
 			hostname, hostaliases, netbiosname, netbiosaliases, workgroup
 	);
 	printBootInfoKeys(stdout, 11);
